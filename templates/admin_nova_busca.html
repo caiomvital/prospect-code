@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-br"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nova busca - Prospeccao</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:Inter,system-ui,sans-serif;background:#f5f5f0;color:#1a1a2e}
+.header{background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);padding:16px 32px;color:#fff;display:flex;justify-content:space-between;align-items:center}
+.header a{color:#e8c56a;text-decoration:none;margin-left:16px}
+.wrap{max-width:1100px;margin:24px auto;padding:0 16px;display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:800px){.wrap{grid-template-columns:1fr}}
+.card{background:#fff;border-radius:10px;padding:18px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+label{display:block;font-size:13px;font-weight:600;margin:12px 0 4px}
+input[type=text],input[type=number],textarea{width:100%;padding:9px;border:1px solid #ccc;border-radius:6px;font:inherit}
+input[type=range]{width:100%}
+#map{height:340px;border-radius:8px;margin-top:8px}
+.cats{display:grid;grid-template-columns:1fr 1fr;gap:4px}.cats label{font-weight:400;margin:2px 0}
+#sug{position:absolute;background:#fff;border:1px solid #ccc;border-radius:6px;z-index:1000;width:100%;max-height:220px;overflow:auto}
+#sug div{padding:8px;cursor:pointer}#sug div:hover{background:#eee}
+.btn{background:#302b63;color:#e8c56a;border:0;border-radius:6px;padding:11px 20px;font-weight:600;cursor:pointer;margin-top:14px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.est{background:#f0eefc;border-radius:8px;padding:12px;font-size:14px;line-height:1.6}
+.err{color:#b00020;font-size:14px;margin-top:8px}
+</style></head><body>
+<div class="header"><b>Nova busca</b><span><a href="/admin/">Dashboard</a><a href="/admin/campanhas">Campanhas</a><a href="/admin/importar-lista">Importar lista</a></span></div>
+<div class="wrap">
+<div class="card">
+  <label>Cidade</label>
+  <div style="position:relative"><input type="text" id="cidade" placeholder="Digite a cidade..." autocomplete="off"><div id="sug" hidden></div></div>
+  <div id="cidade-ok" style="font-size:12px;color:#555;margin-top:4px"></div>
+  <label>Raio: <span id="raio-v">5</span> km</label>
+  <input type="range" id="raio" min="1" max="50" step="1" value="5">
+  <div id="map"></div>
+</div>
+<div class="card">
+  <label>Categorias</label>
+  <div style="margin-bottom:6px;font-size:12px"><a href="#" onclick="marcar(true);return false">todas</a> · <a href="#" onclick="marcar(false);return false">nenhuma</a></div>
+  <div class="cats">{% for c in categorias %}<label><input type="checkbox" class="cat" value="{{ c.key }}"> {{ c.label }}</label>{% endfor %}</div>
+  <label>Filtros</label>
+  <label>Quem buscar (presença digital)</label>
+  <label style="font-weight:400"><input type="checkbox" class="pres" value="sem_presenca" checked> Sem nada (sem site e sem rede social na ficha)</label>
+  <label style="font-weight:400"><input type="checkbox" class="pres" value="so_rede_social" checked> Só rede social (Instagram, Facebook, Linktree, WhatsApp)</label>
+  <label style="font-weight:400"><input type="checkbox" class="pres" value="site_fraco" checked> Site fraco (Wix/Blogspot grátis, iFood, página de terceiros)</label>
+  <label>Nota mínima (0 = sem filtro)</label><input type="number" id="nota_min" min="0" max="5" step="0.1" value="0">
+  <label>Mínimo de avaliações</label><input type="number" id="min_aval" min="0" value="0">
+  <label>Limite de resultados (vazio = sem limite; use 10 para testar)</label><input type="number" id="limite" min="1" placeholder="sem limite">
+  <label>Mensagem do WhatsApp ({nome} e {url})</label><textarea id="msg" rows="4">{{ msg_padrao }}</textarea>
+  <div class="est" id="est" style="margin-top:14px">Escolha cidade e categorias.</div>
+  <div class="err" id="err"></div>
+  <button class="btn" id="go" disabled>Buscar</button>
+</div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+var $=function(i){return document.getElementById(i)};var sel=null;
+var map=L.map('map').setView([-14.2,-51.9],4);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
+var circ=null;
+function desenhar(){if(!sel)return;var r=+$('raio').value*1000;if(circ)map.removeLayer(circ);circ=L.circle([sel.lat,sel.lng],{radius:r,color:'#302b63'}).addTo(map);map.fitBounds(circ.getBounds())}
+var t=null;$('cidade').addEventListener('input',function(){sel=null;atualizar();clearTimeout(t);var q=this.value;t=setTimeout(function(){
+ fetch('/admin/api/cidades?q='+encodeURIComponent(q)).then(r=>r.json()).then(function(l){var s=$('sug');s.innerHTML='';if(!Array.isArray(l)||!l.length){s.hidden=true;return}
+  l.forEach(function(p){var d=document.createElement('div');d.textContent=p.descricao;d.onclick=function(){escolher(p)};s.appendChild(d)});s.hidden=false})},300)});
+function escolher(p){$('sug').hidden=true;$('cidade').value=p.descricao;$('cidade-ok').textContent='Buscando coordenadas...';
+ fetch('/admin/api/cidade/'+p.place_id).then(r=>r.json()).then(function(c){if(c.erro){$('cidade-ok').textContent=c.erro;return}
+  sel={nome:p.descricao,lat:c.lat,lng:c.lng};$('cidade-ok').textContent='lat '+c.lat.toFixed(4)+', lng '+c.lng.toFixed(4);desenhar();atualizar()})}
+function cats(){return Array.from(document.querySelectorAll('.cat:checked')).map(x=>x.value)}
+function marcar(v){document.querySelectorAll('.cat').forEach(x=>x.checked=v);atualizar()}
+function atualizar(){$('raio-v').textContent=$('raio').value;desenhar();var n=cats().length;$('go').disabled=!(sel&&n);
+ if(!n){$('est').textContent='Escolha cidade e categorias.';return}
+ fetch('/admin/api/estimativa?raio='+$('raio').value+'&n_categorias='+n+($('limite').value?'&limite='+$('limite').value:'')).then(r=>r.json()).then(function(e){
+  if(e.erro){$('est').textContent=e.erro;return}
+  $('est').innerHTML='<b>Estimativa</b><br>Círculos de busca: '+e.circulos+' (raio '+e.raio_celula_km+' km cada)<br>Consultas: '+e.consultas+
+  '<br>Chamadas de busca: '+e.chamadas_busca_min+' a '+e.chamadas_busca_max+'<br>Chamadas de detalhes: até '+e.chamadas_detalhes_max+
+  '<br>Custo estimado: <b>US$ '+e.custo_min_usd+' a '+e.custo_max_usd+'</b> (teto; valores aproximados)<br>Tempo: até ~'+e.tempo_estimado_min+' min'+
+  (e.excede_limite?'<br><b style="color:#b00020">Área grande demais: reduza o raio.</b>':'');if(e.excede_limite)$('go').disabled=true})}
+['raio','limite'].forEach(i=>$(i).addEventListener('input',atualizar));document.querySelectorAll('.cat').forEach(x=>x.addEventListener('change',atualizar));
+$('go').onclick=function(){this.disabled=true;$('err').textContent='';
+ fetch('/admin/campanhas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cidade:sel.nome,lat:sel.lat,lng:sel.lng,raio_km:+$('raio').value,categorias:cats(),
+  mensagem_whatsapp:$('msg').value,filtros:{sem_site:true,presenca:Array.from(document.querySelectorAll('.pres:checked')).map(x=>x.value),nota_min:+$('nota_min').value,min_avaliacoes:+$('min_aval').value,limite_resultados:$('limite').value?+$('limite').value:null}})})
+ .then(r=>r.json()).then(function(d){if(d.ok)location.href='/admin/campanhas?abrir='+d.id;else{$('err').textContent=d.erro;$('go').disabled=false}})};
+</script></body></html>

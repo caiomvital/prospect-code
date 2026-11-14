@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pt-br"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Campanhas - Prospeccao</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:Inter,system-ui,sans-serif;background:#f5f5f0;color:#1a1a2e}
+.header{background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);padding:16px 32px;color:#fff;display:flex;justify-content:space-between}
+.header a{color:#e8c56a;text-decoration:none;margin-left:16px}
+.wrap{max-width:1000px;margin:24px auto;padding:0 16px}
+.card{background:#fff;border-radius:10px;padding:16px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.bar{height:14px;background:#e5e5e5;border-radius:7px;overflow:hidden;margin:8px 0}.bar i{display:block;height:100%;background:#302b63;width:0;transition:width .4s}
+.tag{font-size:12px;padding:2px 8px;border-radius:10px;background:#eee}
+.btn{background:#302b63;color:#e8c56a;border:0;border-radius:6px;padding:7px 14px;cursor:pointer;font:inherit;font-size:13px}
+table{width:100%;font-size:13px;border-collapse:collapse;margin-top:8px}td,th{padding:5px;border-bottom:1px solid #eee;text-align:left}
+details summary{cursor:pointer;font-size:13px;margin-top:8px}textarea{width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;font:inherit;margin-top:6px}
+</style></head><body>
+<div class="header"><b>Campanhas</b><span><a href="/admin/">Dashboard</a><a href="/admin/nova-busca">Nova busca</a></span></div>
+<div class="wrap" id="lista">
+{% for c in campanhas %}
+<div class="card" id="c-{{ c.id }}" data-id="{{ c.id }}" data-status="{{ c.status }}">
+  <b>{{ c.cidade }}</b> {% if c.raio_km %}· {{ c.raio_km|int }} km{% endif %} <span class="tag st">{{ c.status }}</span>
+  <span style="font-size:12px;color:#666"> · {{ c.criada_em[:16].replace('T',' ') }} · {{ c.categorias|length }} categorias</span>
+  <div class="bar"><i></i></div>
+  <div class="info" style="font-size:13px"></div>
+  {% if c.status in ['rodando','pendente'] %}<button class="btn" onclick="cancelar('{{ c.id }}')">Cancelar</button>{% endif %}
+  <details><summary>Mensagem do WhatsApp</summary>
+    <textarea rows="3" id="m-{{ c.id }}">{{ c.mensagem_whatsapp }}</textarea>
+    <button class="btn" onclick="salvarMsg('{{ c.id }}')">Salvar mensagem</button></details>
+  <details class="pros"><summary>Prospects encontrados (<span class="np">…</span>)</summary><div class="plist"></div></details>
+</div>{% else %}<div class="card">Nenhuma campanha ainda. <a href="/admin/nova-busca">Criar nova busca</a></div>{% endfor %}
+</div>
+<script>
+function render(c){var el=document.getElementById('c-'+c.id);if(!el)return;var p=c.progresso||{};
+ el.dataset.status=c.status;el.querySelector('.st').textContent=c.status+(p.etapa&&c.status==='rodando'?' ('+p.etapa+')':'');
+ var pct=p.total?Math.min(100,Math.round(100*(p.feito||0)/p.total)):(c.status==='concluida'?100:0);
+ if(p.etapa==='concluida')pct=100;el.querySelector('.bar i').style.width=pct+'%';
+ el.querySelector('.info').textContent=(p.feito||0)+'/'+(p.total||0)+' · candidatos '+(p.candidatos||0)+' · novos '+(p.novos||0)+' · já existiam '+(p.ja_existiam||0)+' · chamadas busca '+(p.chamadas_busca||0)+', detalhes '+(p.chamadas_detalhes||0)+(c.erro?' · ERRO: '+c.erro:'');
+ var ps=c.prospectos||[];el.querySelector('.np').textContent=ps.length;
+ el.querySelector('.plist').innerHTML=ps.length?'<table><tr><th>Nome</th><th>Categoria</th><th>Telefone</th><th>Nota</th></tr>'+ps.map(x=>'<tr><td></td><td>'+(x.categoria||'')+'</td><td>'+(x.telefone||'')+'</td><td>'+(x.rating||'-')+' ('+(x.n_avaliacoes||0)+')</td></tr>').join('')+'</table>':'';
+ el.querySelectorAll('.plist tr').forEach(function(tr,i){if(i>0)tr.firstChild.textContent=ps[i-1].nome})}
+function poll(){document.querySelectorAll('.card[data-id]').forEach(function(el){var ativo=['rodando','pendente'].includes(el.dataset.status);
+ if(ativo||!el.dataset.loaded){el.dataset.loaded=1;fetch('/admin/campanhas/'+el.dataset.id+'/status').then(r=>r.json()).then(render)}})}
+function cancelar(id){fetch('/admin/campanhas/'+id+'/cancelar',{method:'POST'})}
+function salvarMsg(id){fetch('/admin/campanhas/'+id+'/mensagem',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mensagem:document.getElementById('m-'+id).value})}).then(r=>r.json()).then(d=>alert(d.ok?'Salvo':'Erro'))}
+poll();setInterval(poll,2500);
+</script></body></html>

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Prospeccao</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{font-family:Inter,sans-serif;background:#f5f5f0;color:#1a1a2e;}
+        .header{background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);padding:20px 32px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100;}
+        .header h1{color:#e8c56a;font-size:1.4rem;}
+        .header h1 span{color:#f0e6d3;font-weight:300;}
+        .header .stats{color:#b8a99a;font-size:0.85rem;}
+        .header .stats .verde{color:#25D366;}
+        .header .stats .vermelho{color:#dc2626;}
+        .header .logout a{color:#b8a99a;text-decoration:none;font-size:0.85rem;padding:8px 16px;border:1px solid rgba(201,168,76,0.3);border-radius:8px;}
+        .header .logout a:hover{color:#e8c56a;border-color:#e8c56a;}
+        .container{max-width:1400px;margin:0 auto;padding:24px 20px;}
+        .filtros{background:#fff;border-radius:12px;padding:20px;margin-bottom:24px;display:flex;gap:16px;align-items:end;flex-wrap:wrap;box-shadow:0 2px 8px rgba(0,0,0,0.04);}
+        .filtros .grupo{display:flex;flex-direction:column;gap:4px;}
+        .filtros label{font-size:0.75rem;font-weight:600;text-transform:uppercase;color:#7a6b5d;}
+        .filtros select,.filtros input{padding:10px 14px;border:2px solid #e0e0e0;border-radius:8px;font-family:Inter,sans-serif;font-size:0.9rem;min-width:180px;}
+        .filtros select:focus{outline:none;border-color:#c9a84c;}
+        .filtros .btn-limpar{padding:10px 20px;background:#f0f0f0;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:0.85rem;color:#1a1a2e;}
+        .filtros .btn-limpar:hover{background:#e0e0e0;}
+        .tabela-wrap{background:#fff;border-radius:12px;overflow:auto;box-shadow:0 2px 8px rgba(0,0,0,0.04);}
+        table{width:100%;border-collapse:collapse;min-width:1150px;}
+        .ic{display:inline-block;font-size:0.65rem;font-weight:700;padding:2px 5px;margin-right:2px;border-radius:5px;background:#eee;color:#aaa;}
+        .ic.on{background:#dbeafe;color:#1d4ed8;}.ic.on.ig{background:#fbe0ee;color:#c13584;}.ic.on.wa{background:#dcfce7;color:#15803d;}
+        th{background:#fafaf5;padding:12px 16px;text-align:left;font-size:0.75rem;font-weight:700;text-transform:uppercase;color:#7a6b5d;border-bottom:2px solid #e8e8e0;white-space:nowrap;}
+        td{padding:12px 16px;border-bottom:1px solid #f0f0e8;font-size:0.9rem;vertical-align:middle;}
+        tr:hover td{background:#fcfaf5;}
+        .status{display:inline-block;padding:4px 12px;border-radius:20px;font-size:0.75rem;font-weight:600;text-transform:uppercase;}
+        .status-novo{background:#e0f2fe;color:#0369a1;}
+        .status-site_gerado{background:#fef3c7;color:#b45309;}
+        .status-mensagem_enviada{background:#dbeafe;color:#1d4ed8;}
+        .status-respondeu{background:#dcfce7;color:#15803d;}
+        .status-fechado{background:#f0fdf4;color:#166534;}
+        .status-nao_interessado{background:#fef2f2;color:#dc2626;}
+        .wpp-check{font-size:1rem;cursor:help;margin-left:4px;}
+        .wpp-check.sim{color:#25D366;}
+        .wpp-check.nao{color:#dc2626;}
+        .btn{padding:8px 16px;border:none;border-radius:8px;font-weight:600;font-size:0.8rem;cursor:pointer;text-decoration:none;display:inline-block;}
+        .btn-gerar{background:linear-gradient(135deg,#c9a84c,#e8c56a);color:#1a1a2e;}
+        .btn-gerar:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(201,168,76,0.3);}
+        .btn-gerar:disabled{opacity:0.5;cursor:not-allowed;}
+        .btn-whatsapp{background:#25D366;color:#fff;}
+        .btn-whatsapp:hover{background:#1da851;}
+        .btn-whatsapp-fixo{background:#25D366;color:#fff;opacity:0.4;}
+        .btn-whatsapp-fixo:hover{opacity:0.7;background:#1da851;}
+        .btn-status{padding:4px 10px;border-radius:6px;font-size:0.7rem;border:1px solid #d0d0d0;background:#fff;cursor:pointer;font-family:Inter,sans-serif;}
+        .anotacao-input{border:1px solid #e0e0e0;border-radius:6px;padding:6px 10px;font-family:Inter,sans-serif;font-size:0.8rem;width:180px;transition:0.2s;}
+        .anotacao-input:focus{outline:none;border-color:#c9a84c;box-shadow:0 0 0 2px rgba(201,168,76,0.15);}
+        .telefone{font-size:0.85rem;color:#5a4e42;white-space:nowrap;}
+        .endereco{font-size:0.8rem;color:#7a6b5d;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+        .toast{position:fixed;bottom:24px;right:24px;padding:16px 24px;border-radius:10px;color:#fff;font-weight:600;z-index:999;opacity:0;transition:0.4s;font-size:0.9rem;max-width:400px;}
+        .toast.show{opacity:1;}
+        .toast.sucesso{background:#15803d;}
+        .toast.erro{background:#dc2626;}
+        .vazio{text-align:center;padding:60px 20px;color:#7a6b5d;}
+        .acoes{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+        .dropdown-status{position:relative;display:inline-block;}
+        .dropdown-menu{display:none;position:absolute;top:100%;left:0;background:#fff;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:50;min-width:180px;overflow:hidden;}
+        .dropdown-menu.show{display:block;}
+        .dropdown-menu .item{padding:10px 16px;font-size:0.8rem;cursor:pointer;border:none;background:none;width:100%;text-align:left;font-family:Inter,sans-serif;}
+        .dropdown-menu .item:hover{background:#f5f5f0;}
+        .btn-buscar{background:linear-gradient(135deg,#302b63,#24243e);color:#e8c56a;border:1px solid rgba(201,168,76,0.3);}
+        .btn-buscar:hover{background:#302b63;border-color:#e8c56a;}
+        .btn-buscar:disabled{opacity:0.5;cursor:wait;}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div><h1>Prospeccao <span>/ {{ total }} prospectos</span></h1>
+        <div class="stats">{{ sem_site }} sem site | {{ com_site }} com site | <span class="verde">{{ qtd_wpp }} celular</span> | <span class="vermelho">{{ qtd_fixo }} fixo</span> | {{ qtd_sem_tel }} sem tel</div></div>
+        <div class="logout"><a href="/admin/logout">Sair</a></div>
+    </div>
+    <div class="container">
+        <div class="filtros">
+            <div class="grupo"><label>Categoria</label>
+                <select id="filtro-categoria" onchange="aplicarFiltros()">
+                    <option value="">Todas</option>
+                    {% for cat in categorias %}
+                    <option value="{{ cat }}" {% if cat == cat_filtro %}selected{% endif %}>{{ cat }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="grupo"><label>Status</label>
+                <select id="filtro-status" onchange="aplicarFiltros()">
+                    <option value="">Todos</option>
+                    {% for s in ['novo','site_gerado','mensagem_enviada','respondeu','fechado','nao_interessado'] %}
+                    <option value="{{ s }}" {% if s == sts_filtro %}selected{% endif %}>{{ s.replace('_',' ') }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="grupo"><label>WhatsApp</label>
+                <select id="filtro-whatsapp" onchange="aplicarFiltros()">
+                    <option value="">Todos</option>
+                    <option value="true" {% if wp_filtro == 'true' %}selected{% endif %}>So WhatsApp</option>
+                </select>
+            </div>
+            <div class="grupo"><label>Presenca digital</label>
+                <select id="filtro-presenca" onchange="aplicarFiltros()">
+                    <option value="">Todas</option>
+                    {% for k in ['sem_presenca','so_rede_social','site_fraco'] %}
+                    <option value="{{ k }}" {% if k == pres_filtro %}selected{% endif %}>{{ pres_rotulo[k] }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="grupo"><label>Prioridade</label>
+                <select id="filtro-prioridade" onchange="aplicarFiltros()">
+                    <option value="">Todas</option>
+                    {% for k in ['alta','media','baixa'] %}
+                    <option value="{{ k }}" {% if k == prio_filtro %}selected{% endif %}>{{ k }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="grupo"><label>Ordem</label>
+                <select id="filtro-ordem" onchange="aplicarFiltros()">
+                    <option value="">Padrao</option>
+                    <option value="oportunidade" {% if ordem == 'oportunidade' %}selected{% endif %}>Oportunidade (maior primeiro)</option>
+                    <option value="prioridade" {% if ordem == 'prioridade' %}selected{% endif %}>Prioridade</option>
+                </select>
+            </div>
+            <div class="grupo"><label>Oportunidade m&iacute;n.</label>
+                <input id="filtro-opp" type="number" min="0" max="100" style="min-width:90px" value="{{ opp_min }}" placeholder="0-100" onchange="aplicarFiltros()">
+            </div>
+            <a class="btn btn-buscar" href="/admin/exportar.csv" style="text-decoration:none">Exportar CSV</a>
+            <button class="btn-limpar" onclick="limparFiltros()">Limpar Filtros</button>
+            <a class="btn btn-buscar" href="/admin/nova-busca" style="text-decoration:none">Nova busca</a> <a class="btn btn-buscar" href="/admin/campanhas" style="text-decoration:none">Campanhas</a> <a class="btn btn-buscar" href="/admin/importar-lista" style="text-decoration:none">Importar lista</a>
+        </div>
+        <div class="tabela-wrap">
+            {% if prospectos %}
+            <table>
+                <thead><tr><th>Nome</th><th>Categoria</th><th>Presen&ccedil;a</th><th>Oport.</th><th>Telefone</th><th>Endereco</th><th>Status</th><th>Anotacao</th><th>Acoes</th></tr></thead>
+                <tbody>
+                    {% for p in prospectos %}
+                    <tr id="row-{{ p.place_id }}">
+                        <td><strong>{{ p.nome }}</strong>
+                            <div style="margin-top:3px;font-size:0.72rem;">
+                                {% if p.prioridade %}<span style="padding:1px 7px;border-radius:9px;color:#fff;background:{{ {'alta':'#2e9e5b','media':'#d79a1c','baixa':'#999'}[p.prioridade] }}">{{ p.prioridade }}</span>{% endif %}
+                                {% if p.presenca %}<span style="padding:1px 7px;border-radius:9px;background:#eee;">{{ pres_rotulo.get(p.presenca, p.presenca) }}</span>{% endif %}
+                                {% if p.n_avaliacoes %}<span style="color:#7a6b5d;">&#9733; {{ p.rating }} ({{ p.n_avaliacoes }})</span>{% endif %}
+                                {% if p.instagram %}<a href="https://instagram.com/{{ p.instagram }}" target="_blank" style="color:#c13584;">@{{ p.instagram }}</a>{% endif %}
+                            </div></td>
+                        <td><span style="font-size:0.85rem;color:#7a6b5d;">{{ p.categoria }}</span></td>
+                        <td class="pres-ic">{% set pd = p.presenca_digital or {} %}{% set g = pd.get('google') or {} %}{% set st = pd.get('site') or {} %}
+                            <span title="Google: {{ g.get('reviews') or 0 }} avalia&ccedil;&otilde;es{% if g.get('nota') %}, nota {{ g.get('nota') }}{% endif %}" class="ic {{ 'on' if (g.get('reviews') or g.get('fotos') or g.get('horario')) else '' }}">G</span>
+                            <span title="{% if p.instagram_handle %}@{{ p.instagram_handle }}{% else %}Sem Instagram{% endif %}" class="ic {{ 'on ig' if p.instagram_handle else '' }}">IG</span>
+                            <span title="{% if p.tem_whatsapp %}Celular divulgado{% elif p.telefone %}S&oacute; fixo{% else %}Sem telefone{% endif %}" class="ic {{ 'on wa' if p.tem_whatsapp else '' }}">WA</span>
+                            <span title="{% if st.get('tipo') == 'site_proprio' %}Site pr&oacute;prio{% elif p.site %}S&oacute; rede social/site de terceiros{% else %}Sem site{% endif %}" class="ic {{ 'on' if st.get('tipo') == 'site_proprio' else '' }}">&#127760;</span>
+                            <div style="margin-top:4px"><input class="anotacao-input" style="width:120px" placeholder="@instagram" value="{{ p.instagram_handle or '' }}" onchange="salvarIG('{{ p.place_id }}',this.value)"></div></td>
+                        <td><strong>{{ p.score_oportunidade if p.score_oportunidade is not none else '-' }}</strong>{% if p.presenca_digital %}<div style="font-size:0.7rem;color:#7a6b5d">pres. {{ p.presenca_digital.score_presenca }}</div>{% endif %}</td>
+                        <td class="telefone">
+                            {{ p.telefone or '-' }}
+                            {% if p.telefone %}
+                                {% if p.tem_whatsapp %}
+                                <span class="wpp-check sim" title="Celular WhatsApp">&#10003;</span>
+                                {% else %}
+                                <span class="wpp-check nao" title="Possivelmente fixo">&#10007;</span>
+                                {% endif %}
+                            {% endif %}
+                        </td>
+                        <td class="endereco" title="{{ p.endereco }}">{{ p.endereco or '-' }}</td>
+                        <td>{% set s = p.status if p.status else 'novo' %}<span class="status status-{{ s }}">{{ s.replace('_',' ') }}</span></td>
+                        <td><input class="anotacao-input" id="anotacao-{{ p.place_id }}" value="{{ p.anotacao or '' }}" placeholder="Anotacao..." onchange="salvarAnotacao('{{ p.place_id }}',this.value)"></td>
+                        <td><div class="acoes">
+                            {% if not p.site_gerado %}
+                            <button class="btn btn-gerar" onclick="gerarSite('{{ p.place_id }}','{{ p.nome }}')">Gerar Site</button>
+                            {% else %}
+                            <a href="{{ p.site_gerado }}" target="_blank" class="btn btn-gerar">Abrir</a>
+                            {% set tel = p.telefone | replace('(','') | replace(')','') | replace(' ','') | replace('-','') | replace('+55','') %}
+                            {% set msg = p.wa_msg %}
+                            {% if tel %}
+                            <a href="https://wa.me/55{{ tel }}?text={{ msg | urlencode }}" target="_blank" class="btn {% if p.tem_whatsapp %}btn-whatsapp{% else %}btn-whatsapp-fixo{% endif %}">WhatsApp</a>
+                            {% elif p.instagram %}
+                            <a href="https://instagram.com/{{ p.instagram }}" target="_blank" class="btn btn-gerar" title="Sem telefone: abra o perfil e envie a mensagem manualmente">Instagram</a>
+                            {% endif %}
+                            {% endif %}
+                            <div class="dropdown-status">
+                                <button class="btn-status" onclick="toggleDrop('drop-{{ p.place_id }}')">Status</button>
+                                <div class="dropdown-menu" id="drop-{{ p.place_id }}">
+                                    {% for op in ['novo','site_gerado','mensagem_enviada','respondeu','fechado','nao_interessado'] %}
+                                    <button class="item" onclick="mudarStatus('{{ p.place_id }}','{{ op }}')">{{ op.replace('_',' ') }}</button>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="vazio"><h2>Nenhum prospecto encontrado</h2><p>Tente alterar os filtros.</p></div>
+            {% endif %}
+        </div>
+    </div>
+    <div id="toast" class="toast"></div>
+    <script>
+    function aplicarFiltros(){var c=document.getElementById('filtro-categoria').value;var s=document.getElementById('filtro-status').value;var w=document.getElementById('filtro-whatsapp').value;var pr=document.getElementById('filtro-presenca').value;var pi=document.getElementById('filtro-prioridade').value;var od=document.getElementById('filtro-ordem').value;var op=document.getElementById('filtro-opp').value;var p=[];if(op)p.push('opp_min='+op);if(pr)p.push('presenca='+pr);if(pi)p.push('prioridade='+pi);if(od)p.push('ordem='+od);if(c)p.push('categoria='+c);if(s)p.push('status='+s);if(w)p.push('whatsapp='+w);window.location.href='/admin/'+(p.length?'?'+p.join('&'):'');}
+    function limparFiltros(){window.location.href='/admin/';}
+    function toast(m,t){var e=document.getElementById('toast');e.textContent=m;e.className='toast show '+t;setTimeout(function(){e.className='toast';},4000);}
+    function toggleDrop(id){document.getElementById(id).classList.toggle('show');}
+    document.addEventListener('click',function(ev){document.querySelectorAll('.dropdown-menu.show').forEach(function(m){if(!m.parentElement.contains(ev.target))m.classList.remove('show');});});
+    function gerarSite(id,nome){var btn=event.target;btn.disabled=true;btn.textContent='Gerando...';fetch('/admin/gerar-site/'+id,{method:'POST'}).then(function(r){return r.json()}).then(function(d){if(d.ok){toast('Site gerado: '+d.url,'sucesso');setTimeout(function(){location.reload();},1500);}else{toast('Erro: '+(d.erro||'desconhecido'),'erro');btn.disabled=false;btn.textContent='Gerar Site';}}).catch(function(){toast('Erro de rede','erro');btn.disabled=false;btn.textContent='Gerar Site';});}
+    function salvarIG(id,val){fetch('/admin/atualizar-status/'+id,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({instagram_handle:val})}).then(function(r){return r.json()}).then(function(d){if(d.ok){toast('@ salvo','sucesso');setTimeout(function(){location.reload();},800);}else toast('Erro: '+(d.erro||''),'erro');}).catch(function(){toast('Erro de rede','erro');});}
+    function salvarAnotacao(id,val){fetch('/admin/atualizar-status/'+id,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({anotacao:val})}).then(function(r){return r.json()}).then(function(d){if(d.ok)toast('Anotacao salva','sucesso');else toast('Erro','erro');}).catch(function(){toast('Erro de rede','erro');});}
+    function mudarStatus(id,sts){fetch('/admin/atualizar-status/'+id,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:sts})}).then(function(r){return r.json()}).then(function(d){if(d.ok){toast('Status atualizado','sucesso');location.reload();}else toast('Erro','erro');}).catch(function(){toast('Erro de rede','erro');});}
+        function buscarEmpresas(){var btn=document.getElementById('btn-buscar');btn.disabled=true;btn.textContent='Buscando...';toast('Buscando novas empresas (pode levar alguns minutos)...','sucesso');fetch('/admin/buscar',{method:'POST'}).then(function(r){return r.json()}).then(function(d){if(d.ok){toast(d.novos+' novos prospectos adicionados! Total: '+d.total,'sucesso');setTimeout(function(){location.reload();},2000);}else{toast('Erro: '+(d.erro||'desconhecido'),'erro');btn.disabled=false;btn.textContent=' Buscar Novas Empresas';}}).catch(function(e){toast('Erro de rede','erro');btn.disabled=false;btn.textContent=' Buscar Novas Empresas';});}
+    </script>
+</body>
+</html>

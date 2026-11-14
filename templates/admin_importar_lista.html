@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="pt-br"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Importar lista - Prospeccao</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:Inter,system-ui,sans-serif;background:#f5f5f0;color:#1a1a2e}
+.header{background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);padding:16px 32px;color:#fff;display:flex;justify-content:space-between}
+.header a{color:#e8c56a;text-decoration:none;margin-left:16px}
+.wrap{max-width:760px;margin:24px auto;padding:0 16px}.card{background:#fff;border-radius:10px;padding:18px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+label{display:block;font-size:13px;font-weight:600;margin:12px 0 4px}small{color:#666;font-weight:400}
+input,select,textarea{width:100%;padding:9px;border:1px solid #ccc;border-radius:6px;font:inherit}
+textarea{font-family:ui-monospace,monospace;font-size:13px}
+.btn{background:#302b63;color:#e8c56a;border:0;border-radius:6px;padding:11px 20px;font-weight:600;cursor:pointer;margin-top:14px}.btn:disabled{opacity:.5}
+#res{margin-top:14px;font-size:14px;line-height:1.6}.err{color:#b00020}
+</style></head><body>
+<div class="header"><b>Importar lista (Instagram)</b><span><a href="/admin/">Dashboard</a><a href="/admin/nova-busca">Nova busca</a><a href="/admin/campanhas">Campanhas</a></span></div>
+<div class="wrap"><div class="card">
+<label>Perfis <small>um por linha: <code>@perfil</code>, link do Instagram, ou <code>@perfil; Nome do negócio; telefone</code> (nome e telefone são opcionais). Linhas com # são ignoradas. Máx. 200.</small></label>
+<textarea id="texto" rows="10" placeholder="@salaobelavida; Salão Bela Vida; (81) 99999-0000&#10;https://instagram.com/oficinadojoao&#10;@padariadonaana"></textarea>
+<label>Cidade (da lista inteira)</label><input id="cidade" placeholder="Olinda, PE, Brasil">
+<label>Categoria (da lista inteira)</label>
+<select id="cat">{% for c in categorias %}<option value="{{ c.key }}">{{ c.label }}</option>{% endfor %}</select>
+<label>Mensagem do WhatsApp <small>{nome} e {url}</small></label><textarea id="msg" rows="3" style="font-family:inherit">{{ msg_padrao }}</textarea>
+<button class="btn" id="go">Importar</button>
+<div id="res"></div>
+<p style="font-size:12px;color:#666;margin-top:14px">O sistema não acessa o Instagram: ele só cria os prospects a partir do que você colar. Sem telefone, o dashboard mostra o botão "Instagram" para você abrir o perfil e enviar a mensagem manualmente.</p>
+</div></div>
+<script>
+var $=function(i){return document.getElementById(i)};
+$('go').onclick=function(){var b=this;b.disabled=true;$('res').textContent='';
+ fetch('/admin/importar-lista',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({texto:$('texto').value,cidade:$('cidade').value,categoria:$('cat').value,mensagem:$('msg').value})})
+ .then(r=>r.json()).then(function(d){b.disabled=false;
+  if(!d.ok){$('res').innerHTML='<span class="err">'+d.erro+'</span>';return}
+  $('res').innerHTML='<b>'+d.novos+' novos</b> · '+d.ja_existiam+' já existiam · '+d.invalidas.length+' linhas inválidas'+(d.invalidas.length?'<br><small>'+d.invalidas.join('<br>')+'</small>':'')+'<br><a href="/admin/?presenca=so_rede_social">Ver no dashboard</a>'})};
+</script></body></html>

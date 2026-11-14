@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Prospeccao</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:"Inter",sans-serif; background:linear-gradient(135deg,#0f0c29,#302b63,#24243e); min-height:100vh; display:flex; align-items:center; justify-content:center; }
+        .card { background:#fff; border-radius:16px; padding:48px 40px; width:400px; max-width:90vw; box-shadow:0 20px 60px rgba(0,0,0,0.3); }
+        .card h1 { font-size:1.8rem; color:#1a1a2e; margin-bottom:8px; }
+        .card p { color:#7a6b5d; margin-bottom:32px; font-size:0.95rem; }
+        .form-group { margin-bottom:20px; }
+        .form-group label { display:block; font-weight:600; font-size:0.85rem; color:#1a1a2e; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px; }
+        .form-group input { width:100%; padding:14px 16px; border:2px solid #e0e0e0; border-radius:10px; font-family:"Inter",sans-serif; font-size:0.95rem; transition:0.3s; }
+        .form-group input:focus { outline:none; border-color:#c9a84c; box-shadow:0 0 0 3px rgba(201,168,76,0.15); }
+        .btn { width:100%; padding:14px; background:linear-gradient(135deg,#c9a84c,#e8c56a); color:#1a1a2e; border:none; border-radius:10px; font-weight:700; font-size:1rem; cursor:pointer; transition:0.3s; }
+        .btn:hover { transform:translateY(-2px); box-shadow:0 8px 25px rgba(201,168,76,0.3); }
+        .erro { background:#fef2f2; color:#dc2626; padding:12px; border-radius:8px; margin-bottom:20px; font-size:0.9rem; text-align:center; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Prospeccao</h1>
+        <p>Painel de gerenciamento de prospectos</p>
+        {% if erro %}
+        <div class="erro">{{ erro }}</div>
+        {% endif %}
+        <form method="POST" action="/admin/login">
+            <div class="form-group">
+                <label>Usuario</label>
+                <input type="text" name="usuario" placeholder="Digite seu usuario" required>
+            </div>
+            <div class="form-group">
+                <label>Senha</label>
+                <input type="password" name="senha" placeholder="Digite sua senha" required>
+            </div>
+            <button type="submit" class="btn">Entrar</button>
+        </form>
+    </div>
+</body>
+</html>
