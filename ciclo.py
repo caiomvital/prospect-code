@@ -220,6 +220,18 @@ def etapa_avaliar(resumo):
 
 
 def etapa_instagram(cfg, resumo):
+    if not os.getenv('IG_SESSIONID'):
+        # leitura feita pelo script local (local/ig_local.py) na maquina do usuario, que envia os
+        # resultados ao painel; aqui so reavaliamos o score com o que ja chegou
+        def fn(ps):
+            for p in ps:
+                if p.get('instagram_leitura') == 'ok':
+                    presenca.aplicar(p, consultar_site=False)
+        store.mutate_prospectos(fn)
+        resumo['ig_ok'] = sum(1 for p in store.load_prospectos() if p.get('instagram_leitura') == 'ok'
+                              and (p.get('instagram_lida_em') or '')[:10] == datetime.now().date().isoformat())
+        log('instagram: leitura via script local (sem IG_SESSIONID na VPS); score reavaliado')
+        return
     restante = cfg['ig_leituras_dia'] - instagram_leitura.leituras_hoje()
     if restante <= 0:
         log('instagram: limite diario atingido'); return

@@ -234,3 +234,61 @@ def ler_lote(limite, apenas=None, log=print, esperar=True):
             time.sleep(random.uniform(8, 15))
     _salvar(e)
     return res
+
+
+# ---------------------------------------------------------------- modo "script local" (sincronizacao)
+_DADOS_OK = {'seguidores': int, 'posts': int, 'dias_sem_postar': int, 'bio_contato': bool, 'privado': bool}
+
+
+def pendentes(limite):
+    """@ que valem uma leitura: prospects ainda nao contatados, com celular, maior score primeiro."""
+    from pre_envio import is_celular
+    ps = [p for p in store.load_prospectos()
+          if not p.get('mensagem_enviada_em') and p.get('status') in ('novo', 'site_gerado')
+          and not p.get('excluir_envio') and is_celular(p.get('telefone'))]
+    por_id = {p['place_id']: p for p in ps}
+    ids = _candidatos(ps)
+    ids.sort(key=lambda i: -(por_id[i].get('score_oportunidade') or 0))
+    return [(por_id[i].get('instagram_handle') or por_id[i].get('instagram')).strip().lstrip('@')
+            for i in ids[:max(0, int(limite))]]
+
+
+def _limpar_dados(d):
+    out = {}
+    for k, t in _DADOS_OK.items():
+        v = (d or {}).get(k)
+        if t is int and isinstance(v, int) and not isinstance(v, bool) and 0 <= v <= 10**10:
+            out[k] = v
+        elif t is bool and isinstance(v, bool):
+            out[k] = v
+    u = (d or {}).get('ultimo_post')
+    if isinstance(u, str) and re.fullmatch(r'\d{4}-\d{2}-\d{2}', u):
+        out['ultimo_post'] = u
+    l = (d or {}).get('link_externo')
+    if isinstance(l, str) and l.startswith(('http://', 'https://')):
+        out['link_externo'] = l[:200]
+    return out
+
+
+def aplicar_resultados(itens):
+    """itens: [{'handle','status','dados'}] vindos do script local. Retorna {'aplicados','ignorados'}."""
+    import presenca
+    por_handle = {}
+    for it in itens[:100]:
+        h = str(it.get('handle', '')).strip().lstrip('@').lower()
+        if re.fullmatch(r'[a-z0-9_.]{1,30}', h) and it.get('status') in ('ok', 'sem_dados'):
+            por_handle[h] = (it['status'], _limpar_dados(it.get('dados')))
+    res = {'aplicados': 0, 'ignorados': len(itens) - len(por_handle)}
+
+    def fn(L):
+        for p in L:
+            h = (p.get('instagram_handle') or p.get('instagram') or '').strip().lstrip('@').lower()
+            if h in por_handle:
+                st, d = por_handle.pop(h)
+                p['instagram_leitura'], p['instagram_dados'] = st, d
+                p['instagram_lida_em'] = datetime.now().isoformat(timespec='seconds')
+                presenca.aplicar(p, consultar_site=False)
+                res['aplicados'] += 1
+    store.mutate_prospectos(fn)
+    res['ignorados'] += len(por_handle)
+    return res

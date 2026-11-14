@@ -15,6 +15,7 @@ import campanhas
 import presenca as presenca_mod
 import ciclo_lib
 import instagram_client
+import instagram_leitura
 
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 
@@ -446,6 +447,41 @@ def ver_kit(place_id):
     if not os.path.exists(f):
         return 'Kit ainda nao gerado', 404
     return Response(open(f, encoding='utf-8').read(), mimetype='text/html')
+
+
+# ---------------------------------------------------------------- sincronizacao do script local de Instagram
+def _sync_negado():
+    """Auth por token (IG_SYNC_TOKEN) para o script na maquina do usuario. Reusa o limite de falhas por IP."""
+    ip = _ip()
+    if _bloqueado(ip):
+        return jsonify({'erro': 'bloqueado'}), 429
+    tok = os.getenv('IG_SYNC_TOKEN', '')
+    dado = request.headers.get('Authorization', '')
+    if len(tok) >= 32 and _hmac.compare_digest(dado.encode(), ('Bearer ' + tok).encode()):
+        return None
+    _falhou(ip)
+    return jsonify({'erro': 'nao autorizado'}), 401
+
+
+@app.route('/admin/api/ig/pendentes')
+def ig_pendentes():
+    neg = _sync_negado()
+    if neg:
+        return neg
+    n = min(request.args.get('limite', 10, type=int), 30)
+    return jsonify({'handles': instagram_leitura.pendentes(n)})
+
+
+@app.route('/admin/api/ig/resultados', methods=['POST'])
+def ig_resultados():
+    neg = _sync_negado()
+    if neg:
+        return neg
+    corpo = request.get_json(silent=True) or {}
+    itens = corpo.get('resultados')
+    if not isinstance(itens, list) or len(itens) > 100:
+        return jsonify({'erro': 'formato invalido'}), 400
+    return jsonify(instagram_leitura.aplicar_resultados([i for i in itens if isinstance(i, dict)]))
 
 
 if __name__ == '__main__':
