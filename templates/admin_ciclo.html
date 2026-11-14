@@ -1,0 +1,27 @@
+<!DOCTYPE html><html lang="pt-br"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ciclo - Prospeccao</title>
+<style>body{font-family:Inter,system-ui,sans-serif;background:#f5f5f0;color:#1a1a2e;margin:0}.w{max-width:1000px;margin:0 auto;padding:24px 16px}
+.c{background:#fff;border-radius:12px;padding:18px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,.04)}a{color:#302b63}
+button,.b{padding:9px 16px;border:0;border-radius:8px;font-weight:600;cursor:pointer;background:#302b63;color:#e8c56a}
+.ver{background:#15803d;color:#fff}.verm{background:#dc2626;color:#fff}label{display:block;font-size:.75rem;font-weight:700;text-transform:uppercase;color:#7a6b5d;margin:8px 0 2px}
+input{padding:8px;border:2px solid #e0e0e0;border-radius:8px;width:150px}table{border-collapse:collapse;width:100%;font-size:.85rem}td,th{padding:6px 8px;border-bottom:1px solid #eee;text-align:left}
+.f{display:flex;gap:16px;flex-wrap:wrap;align-items:end}small{color:#7a6b5d}.er{color:#dc2626}</style></head><body><div class="w">
+<p><a href="/admin/">&larr; Painel</a></p><h1>Ciclo aut&ocirc;nomo</h1>
+<div class="c"><b>Status:</b> {% if pausado %}<span class="er"><b>PAUSADO</b></span> (data/PAUSA existe){% else %}<b style="color:#15803d">ATIVO</b>{% endif %}
+&middot; custo estimado hoje: US$ {{ '%.2f' % custo }} / {{ '%.2f' % cfg.custo_max_dia_usd }}
+<form method="post" action="/admin/ciclo/pausa" style="display:inline;margin-left:12px"><button class="{{ 'ver' if pausado else 'verm' }}">{{ 'Retomar' if pausado else 'Pausar' }}</button></form>
+<p><small>O ciclo roda pelo timer prospeccao-ciclo.timer (03:30 Recife). Pausar cria data/PAUSA; o enviador para ap&oacute;s a mensagem atual.</small></p></div>
+<div class="c"><h3>Par&acirc;metros</h3><form method="post" action="/admin/ciclo/config" class="f">
+<div><label>Teto de envios/dia</label><input name="teto_envios" type="number" min="0" max="30" value="{{ cfg.teto_envios }}"></div>
+<div><label>Novos por dia</label><input name="n_novos_por_dia" type="number" min="0" max="50" value="{{ cfg.n_novos_por_dia }}"></div>
+<div><label>Oportunidade m&iacute;n.</label><input name="min_oportunidade" type="number" min="0" max="100" value="{{ cfg.min_oportunidade }}"></div>
+<div><label>Custo m&aacute;x./dia (US$)</label><input name="custo_max_dia_usd" type="number" step="0.5" min="0" max="100" value="{{ cfg.custo_max_dia_usd }}"></div>
+<div><label>Leituras IG/dia</label><input name="ig_leituras_dia" type="number" min="0" max="100" value="{{ cfg.ig_leituras_dia }}"></div>
+<button>Salvar</button></form></div>
+<div class="c"><h3>Campanhas de busca no ciclo</h3><table><tr><th>Cidade</th><th>Raio</th><th>Categorias</th><th>&Uacute;ltima execu&ccedil;&atilde;o</th><th></th></tr>
+{% for c in camps %}<tr><td>{{ c.cidade }}</td><td>{{ c.raio_km }} km</td><td>{{ c.categorias|join(', ') }}</td><td>{{ c.get('ultima_execucao') or '-' }}</td>
+<td><form method="post" action="/admin/ciclo/campanha/{{ c.id }}"><button class="{{ 'ver' if c.get('ativa') else '' }}">{{ 'Ativa (desativar)' if c.get('ativa') else 'Inativa (ativar)' }}</button></form></td></tr>
+{% else %}<tr><td colspan="5">Nenhuma campanha com raio. Crie em Nova busca.</td></tr>{% endfor %}</table></div>
+<div class="c"><h3>&Uacute;ltimos ciclos</h3><table><tr><th>In&iacute;cio</th><th>Status</th><th>Novos</th><th>Kits</th><th>Enviados</th><th>IG ok/indisp.</th><th>Respostas</th><th>Custo US$</th><th>Erros</th></tr>
+{% for h in hist %}<tr><td>{{ h.inicio[:16].replace('T',' ') }}</td><td>{{ h.status }}{{ ' (sim.)' if h.simulacao }}</td><td>{{ h.novos }}</td><td>{{ h.kits }}</td><td>{{ h.enviados }}</td><td>{{ h.ig_ok }}/{{ h.ig_indisp }}</td><td>{{ h.respostas }}</td><td>{{ h.custo_usd }}</td><td class="er">{{ h.erros|join('; ') }}</td></tr>
+{% else %}<tr><td colspan="9">Ainda sem ciclos.</td></tr>{% endfor %}</table></div></div></body></html>

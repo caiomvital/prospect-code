@@ -9,7 +9,9 @@ de cada categoria; se faltar, valem os PESOS_PADRAO abaixo):
      site      (peso 40): 0 sem site proprio (rede social / site de terceiros = 0);
                           site proprio: 0.4 existe + 0.3 responde 200 <=8s + 0.15 meta viewport
                           + 0.15 tem wa.me/telefone. Se o site nao foi consultado, so conta "existe".
-     instagram (peso 20): 1 se ha @ (do site ou digitado no painel), senao 0
+     instagram (peso 20): sem leitura do perfil: 1 se ha @ (do site ou do painel), senao 0.
+                          Com leitura publica (instagram_leitura='ok'): perfil sem post ha mais de
+                          60 dias vale 0.5 (o @ existe, mas esta abandonado); senao 1.
      google    (peso 25): media de: telefone (1/0), reviews (min(n/50,1)), fotos (min(n/5,1)),
                           horario (1/0). Dado nao salvo (None) conta 0: sem dado, sem credito.
      whatsapp  (peso 15): 1 celular divulgado (9 apos o DDD), 0.4 so fixo, 0 sem telefone
@@ -111,7 +113,10 @@ def avaliar(p, consultar_site=True):
 
     site = {'url': site_url or None, 'tipo': classe, 'consultado': False, 'ok': None, 'viewport': None,
             'contato': None, 'instagram': [], 'facebook': [], 'whatsapp': []}
-    if classe == 'site_proprio' and consultar_site:
+    antigo = (p.get('presenca_digital') or {}).get('site') or {}
+    if classe == 'site_proprio' and antigo.get('consultado') and antigo.get('url') == site_url and not consultar_site:
+        site.update(antigo)                      # reaproveita, sem nova requisicao
+    elif classe == 'site_proprio' and consultar_site:
         site.update(_consultar_site(site_url))
     elif classe == 'so_rede_social':
         h = handle_instagram(site_url)
@@ -127,7 +132,9 @@ def avaliar(p, consultar_site=True):
     origem = 'painel' if handle else None
     if not handle and site['instagram']:
         handle, origem = site['instagram'][0], 'site'
-    instagram = {'handle': handle, 'origem': origem}
+    instagram = {'handle': handle, 'origem': origem, 'leitura': p.get('instagram_leitura'),
+                 'seguidores': (p.get('instagram_dados') or {}).get('seguidores'),
+                 'dias_sem_postar': (p.get('instagram_dados') or {}).get('dias_sem_postar')}
 
     cel = celular(tel)
     whatsapp = {'telefone': tel or None, 'celular': cel if tel else None}
@@ -140,6 +147,9 @@ def avaliar(p, consultar_site=True):
     else:
         c_site = 0.0
     c_ig = 1.0 if handle else 0.0
+    ig_dados = p.get('instagram_dados') or {}
+    if handle and p.get('instagram_leitura') == 'ok' and (ig_dados.get('dias_sem_postar') or 0) > 60:
+        c_ig = 0.5
     partes = [1.0 if tel else 0.0, min(reviews / 50, 1), min((p.get('fotos') or 0) / 5, 1),
               1.0 if p.get('horario') else 0.0]
     c_google = sum(partes) / len(partes)

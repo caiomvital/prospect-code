@@ -129,7 +129,7 @@
             </div>
             <a class="btn btn-buscar" href="/admin/exportar.csv" style="text-decoration:none">Exportar CSV</a>
             <button class="btn-limpar" onclick="limparFiltros()">Limpar Filtros</button>
-            <a class="btn btn-buscar" href="/admin/nova-busca" style="text-decoration:none">Nova busca</a> <a class="btn btn-buscar" href="/admin/campanhas" style="text-decoration:none">Campanhas</a> <a class="btn btn-buscar" href="/admin/importar-lista" style="text-decoration:none">Importar lista</a>
+            <a class="btn btn-buscar" href="/admin/nova-busca" style="text-decoration:none">Nova busca</a> <a class="btn btn-buscar" href="/admin/campanhas" style="text-decoration:none">Campanhas</a> <a class="btn btn-buscar" href="/admin/importar-lista" style="text-decoration:none">Importar lista</a> <a class="btn btn-buscar" href="/admin/ciclo" style="text-decoration:none">Ciclo</a> <a class="btn btn-buscar" href="/admin/instagram" style="text-decoration:none">Instagram</a>
         </div>
         <div class="tabela-wrap">
             {% if prospectos %}
@@ -179,6 +179,7 @@
                             <a href="https://instagram.com/{{ p.instagram }}" target="_blank" class="btn btn-gerar" title="Sem telefone: abra o perfil e envie a mensagem manualmente">Instagram</a>
                             {% endif %}
                             {% endif %}
+                            <button class="btn btn-status" onclick="gerarKit('{{ p.place_id }}',this)" title="Diagnostico, QR de avaliacao e respostas sugeridas">Kit</button>
                             <div class="dropdown-status">
                                 <button class="btn-status" onclick="toggleDrop('drop-{{ p.place_id }}')">Status</button>
                                 <div class="dropdown-menu" id="drop-{{ p.place_id }}">
@@ -205,6 +206,7 @@
     function toggleDrop(id){document.getElementById(id).classList.toggle('show');}
     document.addEventListener('click',function(ev){document.querySelectorAll('.dropdown-menu.show').forEach(function(m){if(!m.parentElement.contains(ev.target))m.classList.remove('show');});});
     function gerarSite(id,nome){var btn=event.target;btn.disabled=true;btn.textContent='Gerando...';fetch('/admin/gerar-site/'+id,{method:'POST'}).then(function(r){return r.json()}).then(function(d){if(d.ok){toast('Site gerado: '+d.url,'sucesso');setTimeout(function(){location.reload();},1500);}else{toast('Erro: '+(d.erro||'desconhecido'),'erro');btn.disabled=false;btn.textContent='Gerar Site';}}).catch(function(){toast('Erro de rede','erro');btn.disabled=false;btn.textContent='Gerar Site';});}
+    function gerarKit(id,b){b.disabled=true;b.textContent='...';fetch('/admin/kit/'+id,{method:'POST'}).then(function(r){return r.json()}).then(function(d){b.disabled=false;b.textContent='Kit';if(d.ok){window.open(d.url,'_blank');}else toast('Erro: '+(d.erro||''),'erro');}).catch(function(){b.disabled=false;b.textContent='Kit';toast('Erro de rede','erro');});}
     function salvarIG(id,val){fetch('/admin/atualizar-status/'+id,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({instagram_handle:val})}).then(function(r){return r.json()}).then(function(d){if(d.ok){toast('@ salvo','sucesso');setTimeout(function(){location.reload();},800);}else toast('Erro: '+(d.erro||''),'erro');}).catch(function(){toast('Erro de rede','erro');});}
     function salvarAnotacao(id,val){fetch('/admin/atualizar-status/'+id,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({anotacao:val})}).then(function(r){return r.json()}).then(function(d){if(d.ok)toast('Anotacao salva','sucesso');else toast('Erro','erro');}).catch(function(){toast('Erro de rede','erro');});}
     function mudarStatus(id,sts){fetch('/admin/atualizar-status/'+id,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:sts})}).then(function(r){return r.json()}).then(function(d){if(d.ok){toast('Status atualizado','sucesso');location.reload();}else toast('Erro','erro');}).catch(function(){toast('Erro de rede','erro');});}

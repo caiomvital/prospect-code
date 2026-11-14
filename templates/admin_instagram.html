@@ -1,0 +1,14 @@
+<!DOCTYPE html><html lang="pt-br"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Instagram - Prospeccao</title>
+<style>body{font-family:Inter,system-ui,sans-serif;background:#f5f5f0;color:#1a1a2e;margin:0}.w{max-width:900px;margin:0 auto;padding:24px 16px}
+.c{background:#fff;border-radius:12px;padding:18px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,.04)}a{color:#302b63}
+.ok{color:#15803d;font-weight:700}.er{color:#dc2626;font-weight:700}.g{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.p{border:1px solid #eee;border-radius:8px;padding:10px;font-size:.85rem}small{color:#7a6b5d}</style></head><body><div class="w">
+<p><a href="/admin/">&larr; Painel</a></p><h1>Instagram (conta pr&oacute;pria)</h1>
+<div class="c"><b>Token:</b> {% if st.ok %}<span class="ok">v&aacute;lido</span>{% else %}<span class="er">com problema</span>{% endif %}
+{% if erro %}<p class="er">{{ erro }}</p><small>Gere um novo token e atualize IG_ACCESS_TOKEN no .env (n&atilde;o h&aacute; formul&aacute;rio aqui por seguran&ccedil;a).</small>{% endif %}</div>
+{% if perfil %}<div class="c"><h2>@{{ perfil.username }} {% if perfil.name %}<small>({{ perfil.name }})</small>{% endif %}</h2>
+<p>{{ perfil.followers_count }} seguidores &middot; {{ perfil.follows_count }} seguindo &middot; {{ perfil.media_count }} posts</p>
+{% if perfil.biography %}<p><small>{{ perfil.biography }}</small></p>{% endif %}</div>
+<div class="c"><h3>&Uacute;ltimos posts</h3>{% if posts %}<div class="g">{% for m in posts %}<div class="p"><a href="{{ m.permalink }}" target="_blank">{{ m.media_type }}</a> <small>{{ (m.timestamp or '')[:10] }}</small><br>{{ (m.caption or '')[:120] }}<br><small>&hearts; {{ m.like_count or 0 }} &middot; &#128172; {{ m.comments_count or 0 }}</small></div>{% endfor %}</div>{% else %}<p>Nenhum post.</p>{% endif %}</div>{% endif %}
+<p><small>Este token &eacute; s&oacute; da conta @negocioemfluxo. A leitura de perfis de prospects &eacute; p&uacute;blica e n&atilde;o usa o token.</small></p></div></body></html>

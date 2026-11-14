@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 import store
 
-load_dotenv('/root/prospeccao/.env')
+load_dotenv(os.path.join(store.BASE_DIR, '.env'))
 client = OpenAI(api_key=os.getenv('DEEPSEEK_API_KEY'), base_url="https://api.deepseek.com")
 BASE_URL = os.getenv('BASE_URL', 'https://fluxos.dev.br/sites')
 SITES_DIR = '/var/www/fluxos/sites'

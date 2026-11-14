@@ -14,7 +14,7 @@ import store
 import presenca as presenca_mod
 from gerar_site import slugify
 
-load_dotenv('/root/prospeccao/.env')
+load_dotenv(os.path.join(store.BASE_DIR, '.env'))
 API_KEY = os.getenv('GOOGLE_PLACES_API_KEY')
 PLACES = 'https://maps.googleapis.com/maps/api/place/'
 

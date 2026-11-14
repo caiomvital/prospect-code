@@ -24,12 +24,14 @@ import urllib.request
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-sys.path.insert(0, '/root/prospeccao')
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, BASE_DIR)
 import store
 from pre_envio import verificar_site, negocio_ativo, is_celular
 
 TZ = ZoneInfo('America/Recife')
-FILA = '/root/prospeccao/data/fila_envio.json'
+FILA = os.path.join(BASE_DIR, 'data', 'fila_envio.json')
+PAUSA = os.path.join(BASE_DIR, 'data', 'PAUSA')
 
 
 def agora():
@@ -120,16 +122,27 @@ def main():
     a = ap.parse_args()
     fila = json.load(open(FILA, encoding='utf-8'))
     token = '' if a.simular else _token()
+    if not a.simular:
+        try:
+            h = mcp('health', {}, token)
+            if h.get('status') != 'ok':
+                log('ERRO_MCP: health=' + str(h.get('status')) + ' ' + str(h.get('summary'))[:150]); return 3
+        except Exception as ex:
+            log('ERRO_MCP: ' + str(ex)[:150]); return 3
     enviados_sessao, proximo_longo = 0, random.randint(3, 5)
     log(f'fila: {len(fila)} | ja enviados hoje: {enviados_hoje()} | teto {a.teto} | janela {a.inicio}-{a.fim}h '
         f'{"| SIMULACAO" if a.simular else ""}')
+    codigo = 0
     for item in fila:
+        if os.path.exists(PAUSA):
+            log('PAUSA: arquivo data/PAUSA existe; parando'); break
         if not a.simular:
             if enviados_hoje() >= a.teto:
                 log('teto diario atingido: parando (o resto fica para amanha)'); break
             if not dentro_da_janela(a.inicio, a.fim):
                 log('fora da janela de horario: parando'); break
-        p = next((x for x in store.load_prospectos() if x['nome'] == item['nome']), None)
+        p = next((x for x in store.load_prospectos()
+                  if (x['place_id'] == item['place_id'] if item.get('place_id') else x['nome'] == item['nome'])), None)
         if not p or p.get('status') != 'site_gerado' or p.get('excluir_envio') or p.get('sem_whatsapp'):
             log(f'PULADO {item["nome"]}: ja contatado, excluido ou nao encontrado'); continue
         texto = item['texto'].replace('{url}', p.get('site_gerado', ''))
@@ -162,7 +175,7 @@ def main():
                             x['anotacao'] = ((x.get('anotacao') or '').strip() + ' | ' if (x.get('anotacao') or '').strip() else '') + n
                 store.mutate_prospectos(fn)
             except Exception as e:     # qualquer erro: para tudo, nao insiste
-                log(f'ERRO em {item["nome"]}: {str(e)[:200]} -> INTERROMPIDO'); break
+                log(f'ERRO em {item["nome"]}: {str(e)[:200]} -> INTERROMPIDO'); codigo = 2; break
         enviados_sessao += 1
         if item is not fila[-1]:
             if enviados_sessao % proximo_longo == 0:
@@ -173,7 +186,8 @@ def main():
             if not a.simular:
                 time.sleep(d)
     log(f'FIM | enviados nesta execucao: {enviados_sessao if not a.simular else 0}')
+    return codigo
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

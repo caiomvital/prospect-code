@@ -7,21 +7,57 @@ from functools import wraps
 from flask import Flask, session, redirect, request, render_template, jsonify, Response
 from dotenv import load_dotenv
 
-sys.path.insert(0, '/root/prospeccao')
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, BASE_DIR)
 from gerar_site import gerar_e_deployar, atualizar_prospecto
 import store
 import campanhas
 import presenca as presenca_mod
+import ciclo_lib
+import instagram_client
 
-load_dotenv('/root/prospeccao/.env')
+load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24).hex()
+
+_SK = os.getenv('SECRET_KEY', '')
+if len(_SK) < 32:
+    sys.exit('SECRET_KEY ausente ou curta no .env: recusando subir.')
+app.secret_key = _SK
 
 USER = os.getenv('DASHBOARD_USER', 'admin')
-PASS = os.getenv('DASHBOARD_PASS', 'admin123')
-JSON_PATH = '/root/prospeccao/data/prospectos.json'
-BUSCAR_SCRIPT = '/root/prospeccao/buscar_empresas.py'
+PASS = os.getenv('DASHBOARD_PASS', '')
+if not PASS or PASS == 'admin123':
+    sys.exit('DASHBOARD_PASS vazio ou "admin123": defina uma senha forte no .env. Recusando subir.')
+app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax', SESSION_COOKIE_SECURE=True)
+
+# ---- limite de tentativas de login: 5 falhas/IP em 15 min => bloqueio de 30 min (em memoria)
+import time as _time
+import hmac as _hmac
+_FALHAS, _BLOQ = {}, {}
+
+
+def _ip():
+    return request.headers.get('X-Real-IP') or request.remote_addr or '?'   # nginx define X-Real-IP
+
+
+def _bloqueado(ip):
+    ate = _BLOQ.get(ip, 0)
+    if ate > _time.time():
+        return int(ate - _time.time())
+    _BLOQ.pop(ip, None)
+    return 0
+
+
+def _falhou(ip):
+    agora = _time.time()
+    L = [t for t in _FALHAS.get(ip, []) if agora - t < 900] + [agora]
+    _FALHAS[ip] = L
+    if len(L) >= 5:
+        _BLOQ[ip] = agora + 1800
+        _FALHAS.pop(ip, None)
+JSON_PATH = os.path.join(BASE_DIR, 'data', 'prospectos.json')
+BUSCAR_SCRIPT = os.path.join(BASE_DIR, 'buscar_empresas.py')
 
 
 def is_whatsapp(telefone):
@@ -54,10 +90,18 @@ def login_required(f):
 def login():
     erro = None
     if request.method == 'POST':
-        if request.form.get('usuario') == USER and request.form.get('senha') == PASS:
+        ip = _ip()
+        resto = _bloqueado(ip)
+        if resto:
+            return render_template('admin_login.html', erro=f'Muitas tentativas. Tente de novo em {resto // 60 + 1} min.'), 429
+        ok_u = _hmac.compare_digest(request.form.get('usuario', ''), USER)
+        ok_s = _hmac.compare_digest(request.form.get('senha', ''), PASS)
+        if ok_u and ok_s:
+            _FALHAS.pop(ip, None)
             session['logged_in'] = True
             return redirect('/admin/')
         else:
+            _falhou(ip)
             erro = 'Usuario ou senha incorretos'
     return render_template('admin_login.html', erro=erro)
 
@@ -324,6 +368,84 @@ def exportar_csv():
                     p.get('instagram_handle', ''), p.get('score_oportunidade', '')])
     return Response('\ufeff' + buf.getvalue(), mimetype='text/csv; charset=utf-8',
                     headers={'Content-Disposition': 'attachment; filename=prospectos.csv'})
+
+
+# ---------------------------------------------------------------- Instagram (conta propria)
+@app.route('/admin/instagram')
+@login_required
+def pagina_instagram():
+    st = instagram_client.check_token()
+    perfil, posts, erro = None, [], st.get('erro')
+    if st.get('ok'):
+        try:
+            perfil = instagram_client.get_profile()
+            posts = instagram_client.list_media(9)
+        except instagram_client.IGErro as e:
+            erro = str(e)
+    return render_template('admin_instagram.html', st=st, perfil=perfil, posts=posts, erro=erro)
+
+
+# ---------------------------------------------------------------- ciclo autonomo
+@app.route('/admin/ciclo')
+@login_required
+def pagina_ciclo():
+    camps = [c for c in store.load_campanhas() if c.get('raio_km')]
+    custo = ciclo_lib.custo_hoje()
+    return render_template('admin_ciclo.html', pausado=ciclo_lib.pausado(), cfg=ciclo_lib.config(),
+                           hist=ciclo_lib.historico(14), camps=camps, custo=custo)
+
+
+@app.route('/admin/ciclo/pausa', methods=['POST'])
+@login_required
+def ciclo_pausa():
+    ciclo_lib.retomar() if ciclo_lib.pausado() else ciclo_lib.pausar()
+    return redirect('/admin/ciclo')
+
+
+@app.route('/admin/ciclo/config', methods=['POST'])
+@login_required
+def ciclo_config():
+    try:
+        ciclo_lib.salvar_config({k: request.form[k] for k in ciclo_lib.PADRAO if request.form.get(k, '') != ''})
+    except ValueError:
+        pass
+    return redirect('/admin/ciclo')
+
+
+@app.route('/admin/ciclo/campanha/<cid>', methods=['POST'])
+@login_required
+def ciclo_campanha(cid):
+    def fn(cs):
+        for c in cs:
+            if c['id'] == cid:
+                c['ativa'] = not c.get('ativa')
+    store.mutate_campanhas(fn)
+    return redirect('/admin/ciclo')
+
+
+# ---------------------------------------------------------------- kit
+@app.route('/admin/kit/<place_id>', methods=['POST'])
+@login_required
+def gerar_kit(place_id):
+    import kit
+    p = next((x for x in load_prospectos() if x['place_id'] == place_id), None)
+    if not p:
+        return jsonify({'ok': False, 'erro': 'Prospecto nao encontrado'})
+    try:
+        kit.gerar(p)
+        return jsonify({'ok': True, 'url': '/admin/kit/' + place_id})
+    except Exception as e:
+        return jsonify({'ok': False, 'erro': str(e)[:200]})
+
+
+@app.route('/admin/kit/<place_id>', methods=['GET'])
+@login_required
+def ver_kit(place_id):
+    import kit
+    f = os.path.join(kit.pasta(place_id), 'kit.html')
+    if not os.path.exists(f):
+        return 'Kit ainda nao gerado', 404
+    return Response(open(f, encoding='utf-8').read(), mimetype='text/html')
 
 
 if __name__ == '__main__':

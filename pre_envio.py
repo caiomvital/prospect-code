@@ -22,7 +22,7 @@ def negocio_ativo(p):
     Nao detecta mudanca de ramo que o Google ainda nao refletiu."""
     import os
     from dotenv import load_dotenv
-    load_dotenv('/root/prospeccao/.env')
+    load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
     r = requests.get('https://maps.googleapis.com/maps/api/place/details/json', params={
         'place_id': p['place_id'], 'fields': 'name,business_status', 'language': 'pt-BR',
         'key': os.getenv('GOOGLE_PLACES_API_KEY')}, timeout=20).json().get('result', {})
