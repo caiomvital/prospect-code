@@ -1,6 +1,8 @@
-"""Cliente da Instagram Graph API para a conta PROPRIA (@negocioemfluxo).
+"""Cliente da Instagram Graph API (conta @negocioemfluxo).
 Usa so IG_ACCESS_TOKEN / IG_USER_ID / IG_GRAPH_VERSION do .env. O token nunca e logado nem
-aparece em mensagens de erro. NAO deve ser usado para ler perfis de terceiros."""
+aparece em mensagens de erro. Alem do perfil proprio, business_discovery() le dados PUBLICOS de
+perfis profissionais (Business/Creator) de terceiros pela API oficial, em nome da conta
+(autorizado pelo dono em 15/11/2026; antes a regra era so conta propria)."""
 import os
 import requests
 from dotenv import load_dotenv
@@ -54,3 +56,21 @@ def check_token():
         return {'ok': True, 'username': d.get('username'), 'media_count': d.get('media_count')}
     except IGErro as e:
         return {'ok': False, 'erro': str(e)}
+
+
+class IGNaoProfissional(IGErro):
+    """Perfil inexistente ou pessoal: a API so enxerga contas Business/Creator."""
+
+
+def business_discovery(handle):
+    """Dados publicos de um perfil profissional de terceiros, via API oficial."""
+    campos = ('business_discovery.username(%s){username,followers_count,media_count,biography,website,'
+              'media.limit(6){timestamp}}' % handle)
+    try:
+        return _get('{uid}', {'fields': campos}).get('business_discovery') or {}
+    except IGErro as e:
+        m = str(e)
+        if 'Cannot find' in m or 'business' in m.lower() and 'not' in m.lower() or ' 110:' in m or ' 24:' in m \
+                or 'Invalid user id' in m or 'does not exist' in m.lower():
+            raise IGNaoProfissional(m)
+        raise

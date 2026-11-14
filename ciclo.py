@@ -231,6 +231,9 @@ def etapa_instagram(cfg, resumo):
     r = instagram_leitura.ler_lote(restante, apenas=ids, log=log)
     resumo['ig_ok'], resumo['ig_indisp'] = r['ok'] + r['sem_dados'], r['indisponivel']
     resumo['ig_erro'] = r['erro']
+    if r['indisponivel'] and os.getenv('IG_SESSIONID'):
+        L.notificar('Prospeccao: leitura de Instagram bloqueada com o cookie de sessao (expirou, checkpoint ou limite). '
+                    'Leituras encerradas hoje; renove IG_SESSIONID no .env se necessario.')
 
     def fn(ps):
         for p in ps:

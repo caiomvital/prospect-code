@@ -1,4 +1,9 @@
-"""Leitura PUBLICA de perfis de prospects (sem login, sem cookies, sem token).
+"""Leitura de perfis de prospects. Dois modos:
+- IG_SESSIONID no .env (cookie de sessao de uma conta; autorizado pelo dono em 15/11/2026):
+  consulta o endpoint web_profile_info como um navegador logado. O cookie NUNCA e logado.
+  Qualquer 302/401/403/429, 'login_required' ou 'checkpoint' encerra as leituras do dia.
+- sem IG_SESSIONID: leitura anonima da pagina publica (hoje o Instagram a bloqueia).
+NUNCA usa IG_ACCESS_TOKEN (o modulo nao importa instagram_client).
 
 - 1 GET em https://www.instagram.com/<handle>/ por prospect, intervalo de 8-15 s entre leituras,
   maximo IG_LEITURAS_DIA por dia (config do ciclo; padrao 20).
@@ -19,6 +24,9 @@ from datetime import datetime, timezone
 import requests
 
 import store
+from dotenv import load_dotenv
+
+load_dotenv(os.path.join(store.BASE_DIR, '.env'))
 
 ESTADO = os.path.join(store.DATA_DIR, 'ig_leituras.json')
 UA = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
@@ -106,8 +114,51 @@ def parse_pagina(html):
     return d
 
 
+def _ler_logado(handle, sessionid):
+    """web_profile_info com o cookie de sessao. Retorna (status, dados)."""
+    try:
+        r = requests.get('https://www.instagram.com/api/v1/users/web_profile_info/',
+                         params={'username': handle}, timeout=15, allow_redirects=False,
+                         headers={'User-Agent': UA, 'X-IG-App-ID': '936619743392459',
+                                  'Accept': '*/*', 'Accept-Language': 'pt-BR,pt;q=0.9',
+                                  'Referer': f'https://www.instagram.com/{handle}/',
+                                  'X-Requested-With': 'XMLHttpRequest'},
+                         cookies={'sessionid': sessionid})
+    except requests.RequestException as e:
+        return 'erro', {'erro': type(e).__name__}
+    if r.status_code == 404:
+        return 'sem_dados', {'http': 404, 'perfil_inexistente': True}
+    if r.status_code != 200:                         # 302/401/403/429 e afins: para por hoje
+        return 'indisponivel', {'http': r.status_code}
+    try:
+        j = r.json()
+    except ValueError:
+        return 'indisponivel', {'http': 200, 'motivo': 'resposta nao-JSON (login/checkpoint)'}
+    if j.get('message') in ('login_required', 'checkpoint_required') or j.get('require_login'):
+        return 'indisponivel', {'http': 200, 'motivo': str(j.get('message'))[:40]}
+    u = (j.get('data') or {}).get('user')
+    if not u:
+        return 'sem_dados', {'http': 200}
+    d = {'seguidores': (u.get('edge_followed_by') or {}).get('count'),
+         'posts': (u.get('edge_owner_to_timeline_media') or {}).get('count'),
+         'link_externo': u.get('external_url') or None,
+         'privado': bool(u.get('is_private'))}
+    ts = [e['node']['taken_at_timestamp'] for e in
+          ((u.get('edge_owner_to_timeline_media') or {}).get('edges') or []) if e.get('node', {}).get('taken_at_timestamp')]
+    if ts:
+        ult = datetime.fromtimestamp(max(ts), timezone.utc)
+        d['ultimo_post'] = ult.date().isoformat()
+        d['dias_sem_postar'] = (datetime.now(timezone.utc) - ult).days
+    base = (u.get('biography') or '') + ' ' + (d['link_externo'] or '') + ' ' + str(u.get('business_phone_number') or '')
+    d['bio_contato'] = bool(re.search(r'wa\.me/|api\.whatsapp\.com|\(?\b\d{2}\)?\s?9?\d{4}[-\s]?\d{4}\b', base))
+    return 'ok', d
+
+
 def ler_perfil(handle):
     """Retorna ('ok'|'sem_dados'|'indisponivel'|'erro', dados)."""
+    sid = os.getenv('IG_SESSIONID', '').strip()
+    if sid:
+        return _ler_logado(handle, sid)
     try:
         r = requests.get(f'https://www.instagram.com/{handle}/', timeout=15, allow_redirects=False,
                          headers={'User-Agent': UA, 'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
