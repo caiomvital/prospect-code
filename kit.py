@@ -6,7 +6,7 @@ recentes (DeepSeek). Saida em data/kits/<place_id>/ (kit.json, kit.html, qr.svg,
 
 Dados: usa o que ja esta salvo (nota, reviews, lat/lng, telefone) e faz chamadas ao Google
 (Place Details do prospect, 1 Nearby, ate 3 Details dos concorrentes) so para o que nao esta salvo
-(avaliacoes, fotos, horario, concorrentes). Custo estimado ~US$ 0,15 por kit, registrado em custo.json.
+(avaliacoes, fotos, horario, concorrentes). Custo estimado ~US$ 0,04 por kit, registrado em custo.json.
 Nao reutiliza fotos do Places (so conta quantas existem).
 """
 import html
@@ -34,7 +34,7 @@ def _det(pid, campos=CAMPOS, extra=None):
     params = {'place_id': pid, 'language': 'pt-BR', 'key': campanhas.API_KEY, 'fields': campos}
     params.update(extra or {})
     r = requests.get(campanhas.PLACES + 'details/json', params=params, timeout=20).json()
-    L.registrar_custo('details')
+    L.registrar_custo('details_atm')       # rating/reviews = Atmosphere
     if r.get('status') != 'OK':
         raise RuntimeError('Places details: ' + str(r.get('status')))
     return r['result']

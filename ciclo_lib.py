@@ -24,7 +24,7 @@ PADRAO = {'teto_envios': 10, 'n_novos_por_dia': 15, 'min_oportunidade': 60,
 LIMITES = {'teto_envios': (0, 30), 'n_novos_por_dia': (0, 50), 'min_oportunidade': (0, 100),
            'custo_max_dia_usd': (0, 100), 'ig_leituras_dia': (0, 100)}
 # estimativas em US$ por chamada (ajuste em data/custo.json -> "precos")
-PRECOS = {'nearby': 0.032, 'details': 0.025, 'checagem_ativo': 0.005,
+PRECOS = {'nearby': 0.032, 'details': 0.003, 'details_atm': 0.008, 'checagem_ativo': 0.005,
           'deepseek_site': 0.004, 'deepseek_msg': 0.0005, 'kit': 0.15}
 
 

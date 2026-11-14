@@ -170,23 +170,38 @@ def etapa_buscar(cfg, resumo, simular):
         if ult and datetime.now() - datetime.fromisoformat(ult) < timedelta(days=7):
             log(f'busca: campanha {c["id"]} rodou ha menos de 7 dias; pulando'); continue
         est = (c.get('estimativa') or campanhas.estimar(c['raio_km'], len(c['categorias']), None))
-        usd = est['consultas'] * campanhas.MAX_PAGINAS * pr['nearby'] + 20 * pr['details']
-        if L.custo_hoje() + usd > cfg['custo_max_dia_usd']:
+        minimo = est['consultas'] * pr['nearby']
+        if L.custo_hoje() + minimo > cfg['custo_max_dia_usd']:
             resumo['parou_por_custo'] = True
-            log(f'busca: estimativa US$ {usd:.2f} estoura o teto do dia; pulando {c["id"]}'); continue
-        log(f'busca: rodando campanha {c["id"]} ({c["cidade"]}, {c["raio_km"]} km)')
+            log(f'busca: ate a busca minima (US$ {minimo:.2f}) estoura o teto do dia; pulando {c["id"]}'); continue
+        antes = L.custo_hoje()
+        teto = cfg['custo_max_dia_usd']
+
+        def parar(prog, antes=antes, teto=teto):          # teto vale DURANTE a busca
+            gasto = antes + prog['chamadas_busca'] * pr['nearby'] + prog['chamadas_detalhes'] * pr['details']
+            return gasto >= teto
+        log(f'busca: rodando campanha {c["id"]} ({c["cidade"]}, {c["raio_km"]} km); estimativa US$ '
+            f'{est["custo_min_usd"]}-{est["custo_max_usd"]}, teto restante US$ {teto - antes:.2f}')
         try:
-            campanhas.executar(c['id'])
+            campanhas.executar(c['id'], parar=parar)
         except Exception as e:
             campanhas._atualizar(c['id'], status='erro', erro=str(e)[:200])
             resumo['erros'].append(f'busca {c["id"]}: {str(e)[:120]}')
             log('busca: erro', str(e)[:200]); continue
-        pg = (campanhas.obter(c['id']) or {}).get('progresso', {})
+        atual = campanhas.obter(c['id']) or {}
+        if atual.get('status') == 'erro':
+            resumo['erros'].append(f'busca {c["id"]}: {str(atual.get("erro"))[:100]}')
+            log('busca: campanha terminou em erro:', str(atual.get('erro'))[:150])
+        pg = atual.get('progresso', {})
         L.registrar_custo('nearby', pg.get('chamadas_busca', 0))
         L.registrar_custo('details', pg.get('chamadas_detalhes', 0))
         resumo['buscados'] += pg.get('candidatos', 0)
         resumo['novos'] += pg.get('novos', 0)
-        campanhas._atualizar(c['id'], ultima_execucao=datetime.now().isoformat(timespec='seconds'))
+        if pg.get('parcial'):
+            resumo['parou_por_custo'] = True       # nao marca como rodada: amanha continua pelo que faltou
+            log('busca: PARCIAL, parou pelo teto de custo')
+        else:
+            campanhas._atualizar(c['id'], ultima_execucao=datetime.now().isoformat(timespec='seconds'))
         log(f'busca: {pg.get("candidatos")} candidatos, {pg.get("novos")} novos')
         if L.custo_hoje() >= cfg['custo_max_dia_usd']:
             resumo['parou_por_custo'] = True; break
@@ -288,6 +303,8 @@ def _agora():
 
 
 def etapa_enviar(cfg, resumo, mcp, token):
+    if cfg['teto_envios'] <= 0:
+        log('envio: teto de envios = 0 (envio desligado em /admin/ciclo); a fila fica guardada'); return
     n = _agora()
     if n.weekday() == 6:
         log('envio: domingo, fora da janela; a fila fica para amanha'); return
@@ -358,11 +375,12 @@ def main():
         r = L.verificar_respostas(enviador.mcp, token, log)
         resumo['respostas'], resumo['saidas'] = r['respostas'], r['saidas']
         etapa_buscar(cfg, resumo, a.simular)
-        if not resumo['parou_por_custo']:
-            etapa_avaliar(resumo)
-            etapa_instagram(cfg, resumo)
-            if not L.pausado():
-                etapa_gerar(cfg, resumo, a.simular)
+        etapa_avaliar(resumo)                  # avaliar e ler Instagram nao custam: rodam sempre
+        etapa_instagram(cfg, resumo)
+        if not resumo['parou_por_custo'] and not L.pausado():
+            etapa_gerar(cfg, resumo, a.simular)
+        elif resumo['parou_por_custo']:
+            log('teto de custo atingido: sem gerar sites/mensagens hoje')
         if not a.simular and not resumo['parou_por_custo'] and not any('2 falhas' in e for e in resumo['erros']):
             etapa_enviar(cfg, resumo, enviador.mcp, token)
             r = L.verificar_respostas(enviador.mcp, token, log)

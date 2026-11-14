@@ -269,7 +269,9 @@ def _checar(cid):
         raise _Cancelado()
 
 
-def executar(cid):
+def executar(cid, parar=None):
+    """parar(prog) -> True interrompe a etapa de detalhes (teto de custo do ciclo); o que ja foi
+    salvo fica, e o restante entra na proxima execucao."""
     camp = obter(cid)
     if not camp:
         return
@@ -290,8 +292,15 @@ def executar(cid):
                 _checar(cid)
                 if token:
                     time.sleep(2)   # o token da proxima pagina leva ~2s para valer
-                data = _nearby(lat, lng, raio_cel * 1000, cat['keyword'], token)
-                prog['chamadas_busca'] += 1
+                for tentativa in range(3):          # erros transitorios do Google: repete com espera
+                    data = _nearby(lat, lng, raio_cel * 1000, cat['keyword'], token)
+                    prog['chamadas_busca'] += 1
+                    if data.get('status') not in ('INTERNAL', 'UNKNOWN_ERROR'):
+                        break
+                    time.sleep(3 * (tentativa + 1))
+                if data.get('status') in ('INTERNAL', 'UNKNOWN_ERROR'):
+                    prog['consultas_falhas'] = prog.get('consultas_falhas', 0) + 1   # pula so esta consulta
+                    break
                 if data.get('status') not in ('OK', 'ZERO_RESULTS'):
                     raise RuntimeError(f"Nearby Search: {data.get('status')} {data.get('error_message', '')}")
                 for pl in data.get('results', []):
@@ -334,8 +343,12 @@ def executar(cid):
                     ja_existiam=len(lista) - len(novos_cand), candidatos=len(lista))
         _atualizar(cid, progresso=prog)
 
+        parcial = False
         for i, emp in enumerate(novos_cand, 1):
             _checar(cid)
+            if parar and parar(prog):
+                parcial = True
+                break
             st, det = _detalhes(emp['place_id'])
             prog['chamadas_detalhes'] += 1
             if st == 'OK':
@@ -370,7 +383,8 @@ def executar(cid):
             _atualizar(cid, progresso=prog)
             time.sleep(0.1)
 
-        prog['etapa'] = 'concluida'
+        prog['etapa'] = 'parcial (teto de custo)' if parcial else 'concluida'
+        prog['parcial'] = parcial
         _atualizar(cid, status='concluida', progresso=prog)
     except _Cancelado:
         prog['etapa'] = 'cancelada'
