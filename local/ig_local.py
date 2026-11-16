@@ -2,7 +2,7 @@
 """Leitura de perfis do Instagram na SUA maquina (IP residencial) para o painel de prospeccao.
 
 Fluxo: pede ao painel a lista de @ pendentes -> le cada perfil como navegador logado, devagar ->
-envia os dados ao painel. Python 3.8+, so biblioteca padrao. Linux/macOS (cron).
+envia os dados ao painel. Python 3.8+, so biblioteca padrao. Linux/macOS (cron) e Windows (Agendador).
 
 Configuracao: ~/.prospeccao_ig.env (chmod 600), uma variavel por linha:
     PAINEL_URL=https://fluxos.dev.br/admin
@@ -51,10 +51,10 @@ def log(*a):
 def config():
     if not os.path.exists(CFG):
         sys.exit(f'Falta {CFG}. Veja o cabecalho do script.')
-    if os.stat(CFG).st_mode & (stat.S_IRWXG | stat.S_IRWXO):
+    if os.name != 'nt' and os.stat(CFG).st_mode & (stat.S_IRWXG | stat.S_IRWXO):  # no Windows st_mode nao reflete ACL
         sys.exit(f'{CFG} esta legivel por outros usuarios. Rode: chmod 600 {CFG}')
     c = {}
-    for l in open(CFG, encoding='utf-8'):
+    for l in open(CFG, encoding='utf-8-sig'):
         l = l.strip()
         if l and not l.startswith('#') and '=' in l:
             k, v = l.split('=', 1)

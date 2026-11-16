@@ -110,11 +110,15 @@ def _prompt_msg(p):
     if ig:
         fatos.append(f'- Tem Instagram: @{ig}')
     return ('Escreva a primeira mensagem de WhatsApp do Caio (desenvolvedor autônomo) para o dono deste negócio, '
-            'avisando que montou uma página de demonstração para ele.\n\nFATOS (use apenas estes):\n'
+            'apresentando-se como alguém que ajuda pequenos negócios a aparecerem melhor na internet (presença no Google, '
+            'WhatsApp e site) e avisando que montou uma página de demonstração de exemplo para ele.\n\nFATOS (use apenas estes):\n'
             + '\n'.join(fatos) +
             '\n\nREGRAS:\n- Português do Brasil, tom humano e simples, 3 a 5 frases curtas, sem emojis ou no máximo um.\n'
             '- Cite UM dado real dos fatos acima (ex.: o bairro como aparece no endereço, ou a nota), sem inventar nada.\n'
             '- Diga que a página é só um modelo/exemplo e que o conteúdo (textos, serviços) é ilustrativo.\n'
+            '- O foco é a presença digital do negócio, não só o site: a página é apenas um exemplo concreto. '
+            'Ofereça, de forma leve, olhar também a ficha do Google e o WhatsApp se fizer sentido. '
+            'NÃO afirme que faltam fotos, horário, Instagram ou outros itens: só afirme o que está nos FATOS.\n'
             '- NÃO prometa preço, prazo, resultado ou garantia. NÃO cite valores nem números de telefone.\n'
             '- Inclua exatamente uma vez o marcador {url} onde vai o link.\n'
             '- Termine deixando claro que, se não houver interesse, é só avisar.\n'
